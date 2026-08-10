@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ANRA Institute - Student Feedback</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --text: #1f2430;
+    --muted: #6b7280;
+    --border: #e2e5ea;
+    --danger: #dc2626;
+    --success: #16a34a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px 16px;
+  }
+  .card {
+    max-width: 720px;
+    margin: 0 auto;
+    background: var(--card);
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    padding: 32px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  input[type=text], input[type=email], input[type=tel], select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fff;
+  }
+  textarea { resize: vertical; min-height: 100px; }
+  .field { margin-bottom: 18px; }
+  .stars { display: flex; gap: 6px; font-size: 26px; cursor: pointer; user-select: none; }
+  .stars span { color: #d1d5db; transition: color 0.15s; }
+  .stars span.active { color: #f59e0b; }
+  .radio-row { display: flex; gap: 20px; align-items: center; }
+  .radio-row label { display: flex; align-items: center; gap: 6px; font-weight: 500; margin: 0; }
+  fieldset { border: none; padding: 0; margin: 0; }
+
+  .video-box {
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    background: #fafbfc;
+  }
+  video { width: 100%; max-width: 420px; border-radius: 10px; background: #000; }
+  .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-secondary { background: #eef1f6; color: var(--text); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .status { font-size: 13px; margin-top: 8px; color: var(--muted); }
+  .status.recording { color: var(--danger); font-weight: 600; }
+
+  .submit-row { margin-top: 24px; }
+  .submit-row button { width: 100%; padding: 13px; font-size: 15px; }
+
+  .message { padding: 12px 14px; border-radius: 8px; margin-bottom: 18px; font-size: 14px; display: none; }
+  .message.success { background: #ecfdf3; color: var(--success); display: block; }
+  .message.error { background: #fef2f2; color: var(--danger); display: block; }
+
+  @media (max-width: 560px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>ANRA Institute - Student Feedback</h1>
+  <p class="sub">Please share your feedback about the course. You can optionally record a short video with audio.</p>
+
+  <div id="message" class="message"></div>
+
+  <form id="feedbackForm" novalidate>
+    <div class="grid">
+      <div class="field">
+        <label for="student_name">Full Name *</label>
+        <input type="text" id="student_name" name="student_name" required>
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email">
+      </div>
+      <div class="field">
+        <label for="mobile">Mobile</label>
+        <input type="tel" id="mobile" name="mobile">
+      </div>
+      <div class="field">
+        <label for="course">Course</label>
+        <input type="text" id="course" name="course">
+      </div>
+      <div class="field">
+        <label for="trainer">Trainer</label>
+        <input type="text" id="trainer" name="trainer">
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="field">
+        <label>Overall Rating</label>
+        <div class="stars" data-target="overall_rating">
+          <span data-value="1">&#9733;</span><span data-value="2">&#9733;</span>
+          <span data-value="3">&#9733;</span><span data-value="4">&#9733;</span>
+          <span data-value="5">&#9733;</span>
+        </div>
+        <input type="hidden" name="overall_rating" id="overall_rating">
+      </div>
+      <div class="field">
+        <label>Trainer Rating</label>
+        <div class="stars" data-target="trainer_rating">
+          <span data-value="1">&#9733;</span><span data-value="2">&#9733;</span>
+          <span data-value="3">&#9733;</span><span data-value="4">&#9733;</span>
+          <span data-value="5">&#9733;</span>
+        </div>
+        <input type="hidden" name="trainer_rating" id="trainer_rating">
+      </div>
+      <div class="field">
+        <label>Practical Rating</label>
+        <div class="stars" data-target="practical_rating">
+          <span data-value="1">&#9733;</span><span data-value="2">&#9733;</span>
+          <span data-value="3">&#9733;</span><span data-value="4">&#9733;</span>
+          <span data-value="5">&#9733;</span>
+        </div>
+        <input type="hidden" name="practical_rating" id="practical_rating">
+      </div>
+      <div class="field">
+        <label>Material Rating</label>
+        <div class="stars" data-target="material_rating">
+          <span data-value="1">&#9733;</span><span data-value="2">&#9733;</span>
+          <span data-value="3">&#9733;</span><span data-value="4">&#9733;</span>
+          <span data-value="5">&#9733;</span>
+        </div>
+        <input type="hidden" name="material_rating" id="material_rating">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Would you recommend this course?</label>
+      <div class="radio-row">
+        <label><input type="radio" name="recommend" value="yes"> Yes</label>
+        <label><input type="radio" name="recommend" value="no"> No</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="written_feedback">Written Feedback</label>
+      <textarea id="written_feedback" name="written_feedback" placeholder="Tell us about your experience..."></textarea>
+    </div>
+
+    <div class="field">
+      <label>Video Feedback (optional, with audio)</label>
+      <div class="video-box">
+        <video id="preview" autoplay muted playsinline></video>
+        <div class="btn-row">
+          <button type="button" id="startCameraBtn" class="btn-secondary">Enable Camera + Mic</button>
+          <button type="button" id="recordBtn" class="btn-primary" disabled>Start Recording</button>
+          <button type="button" id="stopBtn" class="btn-danger" disabled>Stop</button>
+          <button type="button" id="retakeBtn" class="btn-secondary" disabled>Retake</button>
+        </div>
+        <div id="recStatus" class="status">Camera not started.</div>
+        <div id="micMeterWrap" style="display:none; margin-top:10px;">
+          <div style="font-size:12px; color:var(--muted); margin-bottom:4px;">Mic input level (speak to test):</div>
+          <div style="height:10px; background:#e5e7eb; border-radius:6px; overflow:hidden;">
+            <div id="micMeter" style="height:100%; width:0%; background:var(--success); transition:width 0.08s;"></div>
+          </div>
+        </div>
+        <video id="playback" controls style="display:none; margin-top:12px;"></video>
+      </div>
+    </div>
+
+    <div class="submit-row">
+      <button type="submit" id="submitBtn" class="btn-primary">Submit Feedback</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  // ---- Star ratings ----
+  document.querySelectorAll(".stars").forEach(function (starGroup) {
+    var target = starGroup.getAttribute("data-target");
+    var hiddenInput = document.getElementById(target);
+    var stars = starGroup.querySelectorAll("span");
+
+    stars.forEach(function (star) {
+      star.addEventListener("click", function () {
+        var value = parseInt(star.getAttribute("data-value"), 10);
+        hiddenInput.value = value;
+        stars.forEach(function (s) {
+          s.classList.toggle("active", parseInt(s.getAttribute("data-value"), 10) <= value);
+        });
+      });
+    });
+  });
+
+  // ---- Webcam + mic recording ----
+  var startCameraBtn = document.getElementById("startCameraBtn");
+  var recordBtn = document.getElementById("recordBtn");
+  var stopBtn = document.getElementById("stopBtn");
+  var retakeBtn = document.getElementById("retakeBtn");
+  var preview = document.getElementById("preview");
+  var playback = document.getElementById("playback");
+  var recStatus = document.getElementById("recStatus");
+
+  var micMeterWrap = document.getElementById("micMeterWrap");
+  var micMeter = document.getElementById("micMeter");
+
+  var mediaStream = null;
+  var mediaRecorder = null;
+  var recordedChunks = [];
+  var recordedBlob = null;
+  var audioCtx = null;
+  var meterRAF = null;
+
+  // Live mic level meter -- this is the fastest way to tell whether audio
+  // is actually flowing before you even hit record. If this bar never
+  // moves when you talk, the problem is upstream of our code entirely
+  // (OS-level mic permission, wrong input device, or a muted/disabled mic).
+  function startMicMeter(stream) {
+    var audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0) {
+      recStatus.textContent = "Warning: no microphone track was granted. Audio will NOT be recorded.";
+      micMeterWrap.style.display = "none";
+      return;
+    }
+    micMeterWrap.style.display = "block";
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var source = audioCtx.createMediaStreamSource(stream);
+    var analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+    var data = new Uint8Array(analyser.frequencyBinCount);
+
+    function tick() {
+      analyser.getByteFrequencyData(data);
+      var sum = 0;
+      for (var i = 0; i < data.length; i++) sum += data[i];
+      var avg = sum / data.length;
+      var pct = Math.min(100, Math.round((avg / 60) * 100));
+      micMeter.style.width = pct + "%";
+      meterRAF = requestAnimationFrame(tick);
+    }
+    tick();
+  }
+
+  function stopMicMeter() {
+    if (meterRAF) cancelAnimationFrame(meterRAF);
+    if (audioCtx) { audioCtx.close(); audioCtx = null; }
+    micMeterWrap.style.display = "none";
+  }
+
+  function pickMimeType() {
+    var candidates = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm"
+    ];
+    for (var i = 0; i < candidates.length; i++) {
+      if (window.MediaRecorder && MediaRecorder.isTypeSupported(candidates[i])) {
+        return candidates[i];
+      }
+    }
+    return "";
+  }
+
+  startCameraBtn.addEventListener("click", async function () {
+    try {
+      // Log available input devices first -- if the browser silently picked
+      // a device with no signal (common with USB webcams that have a
+      // separate, unused built-in mic), this tells us in the console.
+      if (navigator.mediaDevices.enumerateDevices) {
+        var devices = await navigator.mediaDevices.enumerateDevices();
+        console.log("Available devices:", devices.filter(function (d) { return d.kind.indexOf("input") !== -1; }));
+      }
+
+      // IMPORTANT: request both video AND audio, otherwise the recording
+      // will be silent even though the camera preview looks fine.
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      var audioTracks = mediaStream.getAudioTracks();
+      var videoTracks = mediaStream.getVideoTracks();
+      console.log("Audio tracks granted:", audioTracks.length, audioTracks);
+      console.log("Video tracks granted:", videoTracks.length, videoTracks);
+
+      preview.srcObject = mediaStream;
+      recordBtn.disabled = false;
+      startCameraBtn.disabled = true;
+
+      if (audioTracks.length === 0) {
+        recStatus.textContent = "Camera ready, but NO microphone track was granted. Check browser + OS mic permissions.";
+      } else {
+        recStatus.textContent = "Camera and microphone ready (" + audioTracks.length + " audio track).";
+        startMicMeter(mediaStream);
+      }
+    } catch (err) {
+      recStatus.textContent = "Could not access camera/microphone: " + err.name + " - " + err.message;
+      console.error("getUserMedia error:", err);
+    }
+  });
+
+  recordBtn.addEventListener("click", function () {
+    if (!mediaStream) return;
+    recordedChunks = [];
+    recordedBlob = null;
+
+    console.log("Recording with tracks:", mediaStream.getTracks().map(function (t) {
+      return t.kind + " (" + t.label + ", enabled=" + t.enabled + ", muted=" + t.muted + ")";
+    }));
+
+    var mimeType = pickMimeType();
+    console.log("Using mimeType:", mimeType);
+    try {
+      mediaRecorder = mimeType
+        ? new MediaRecorder(mediaStream, { mimeType: mimeType })
+        : new MediaRecorder(mediaStream);
+    } catch (err) {
+      recStatus.textContent = "Recording not supported in this browser: " + err.message;
+      return;
+    }
+
+    mediaRecorder.ondataavailable = function (e) {
+      if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = function () {
+      recordedBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "video/webm" });
+      console.log("Recorded blob:", recordedBlob.size, "bytes,", recordedBlob.type);
+      var url = URL.createObjectURL(recordedBlob);
+      playback.src = url;
+      playback.style.display = "block";
+      preview.style.display = "none";
+      // Playback element must NOT be muted, or you'll assume audio is
+      // missing when it's actually just silenced by this attribute.
+      playback.muted = false;
+      playback.removeAttribute("muted");
+      recStatus.textContent = "Recording saved. Play it back below to check for audio, then retake or submit.";
+      retakeBtn.disabled = false;
+    };
+
+    mediaRecorder.start();
+    recordBtn.disabled = true;
+    stopBtn.disabled = false;
+    recStatus.textContent = "Recording...";
+    recStatus.classList.add("recording");
+  });
+
+  stopBtn.addEventListener("click", function () {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+    }
+    stopBtn.disabled = true;
+    recStatus.classList.remove("recording");
+  });
+
+  retakeBtn.addEventListener("click", function () {
+    recordedBlob = null;
+    recordedChunks = [];
+    playback.style.display = "none";
+    preview.style.display = "block";
+    recordBtn.disabled = false;
+    stopBtn.disabled = true;
+    retakeBtn.disabled = true;
+    recStatus.textContent = "Ready to record again.";
+  });
+
+  // ---- Form submission ----
+  var form = document.getElementById("feedbackForm");
+  var submitBtn = document.getElementById("submitBtn");
+  var messageBox = document.getElementById("message");
+
+  function showMessage(text, type) {
+    messageBox.textContent = text;
+    messageBox.className = "message " + type;
+  }
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    var studentName = document.getElementById("student_name").value.trim();
+    if (!studentName) {
+      showMessage("Please enter your name.", "error");
+      return;
+    }
+
+    // Build FormData directly from the form element so every named field
+    // currently in the DOM (including the written_feedback textarea) is
+    // captured automatically -- this was the bug that caused text feedback
+    // to go missing before.
+    var formData = new FormData(form);
+
+    if (recordedBlob) {
+      var ext = (recordedBlob.type.indexOf("mp4") !== -1) ? "mp4" : "webm";
+      formData.append("video", recordedBlob, "feedback-video." + ext);
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Submitting...";
+
+    try {
+      var response = await fetch("/submit-feedback", {
+        method: "POST",
+        body: formData
+      });
+      var data = await response.json();
+
+      if (data.success) {
+        showMessage(data.message, "success");
+        form.reset();
+        document.querySelectorAll(".stars span").forEach(function (s) {
+          s.classList.remove("active");
+        });
+        playback.style.display = "none";
+        preview.style.display = "block";
+        recordedBlob = null;
+        recordedChunks = [];
+        retakeBtn.disabled = true;
+        recordBtn.disabled = mediaStream ? false : true;
+        recStatus.textContent = mediaStream ? "Ready to record again." : "Camera not started.";
+      } else {
+        showMessage(data.message || "Something went wrong.", "error");
+      }
+    } catch (err) {
+      showMessage("Network error: " + err.message, "error");
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit Feedback";
+    }
+  });
+})();
+</script>
+</body>
+</html>

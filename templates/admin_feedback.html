@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin - Feedback</title>
+<style>
+  body { font-family: "Segoe UI", Roboto, Arial, sans-serif; background: #f4f6fb; margin: 0; padding: 24px; color: #1f2430; }
+  h1 { font-size: 20px; margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eef0f4; font-size: 13px; vertical-align: top; }
+  th { background: #f0f2f7; font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  video { max-width: 200px; border-radius: 6px; }
+  .empty { color: #6b7280; padding: 30px; text-align: center; }
+</style>
+</head>
+<body>
+<h1>Student Feedback ({{ feedbacks|length }})</h1>
+
+{% if feedbacks %}
+<table>
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Name</th>
+      <th>Email / Mobile</th>
+      <th>Course / Trainer</th>
+      <th>Ratings (O/T/P/M)</th>
+      <th>Recommend</th>
+      <th>Written Feedback</th>
+      <th>Video</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in feedbacks %}
+    <tr>
+      <td>{{ f.submitted_at.strftime("%Y-%m-%d %H:%M") if f.submitted_at else "" }}</td>
+      <td>{{ f.student_name }}</td>
+      <td>{{ f.email or "-" }}<br>{{ f.mobile or "-" }}</td>
+      <td>{{ f.course or "-" }}<br>{{ f.trainer or "-" }}</td>
+      <td>{{ f.overall_rating or "-" }}/{{ f.trainer_rating or "-" }}/{{ f.practical_rating or "-" }}/{{ f.material_rating or "-" }}</td>
+      <td>{{ "Yes" if f.recommend else ("No" if f.recommend is not none else "-") }}</td>
+      <td>{{ f.written_feedback or "-" }}</td>
+      <td>
+        {% if f.video_filename %}
+        <video controls src="{{ url_for('uploaded_video', filename=f.video_filename) }}"></video>
+        {% else %}
+        -
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty">No feedback submitted yet.</div>
+{% endif %}
+</body>
+</html>
