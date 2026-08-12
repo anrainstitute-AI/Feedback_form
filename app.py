@@ -220,7 +220,51 @@ def request_too_large(error):
         success=False,
         message="The uploaded video is too large. Maximum size is 100 MB."
     ), 413
+@app.route("/test-cloudinary")
+def test_cloudinary():
+    try:
+        result = cloudinary.api.ping()
+        return jsonify(
+            success=True,
+            message="Cloudinary connection successful",
+            result=result
+        )
+    except Exception as exc:
+        app.logger.exception("Cloudinary test failed: %s", exc)
+        return jsonify(
+            success=False,
+            error=type(exc).__name__,
+            message=str(exc)
+        ), 500
+@app.route("/test-email")
+def test_email():
+    try:
+        send_feedback_email({
+            "student_name": "Test",
+            "email": "test@example.com",
+            "mobile": "0000000000",
+            "course": "Test Course",
+            "trainer": "Test Trainer",
+            "overall_rating": 5,
+            "trainer_rating": 5,
+            "practical_rating": 5,
+            "material_rating": 5,
+            "recommend": "yes",
+            "written_feedback": "Test email from Flask"
+        })
 
+        return jsonify(
+            success=True,
+            message="Gmail connection successful"
+        )
+
+    except Exception as exc:
+        app.logger.exception("Gmail test failed: %s", exc)
+        return jsonify(
+            success=False,
+            error=type(exc).__name__,
+            message=str(exc)
+        ), 500
 
 if __name__ == "__main__":
     app.run(
