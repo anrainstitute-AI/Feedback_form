@@ -59,35 +59,17 @@ def upload_video(video):
     filename = secure_filename(video.filename)
     extension = os.path.splitext(filename)[1].lower()
 
-    if extension not in {".mp4", ".webm", ".mov"}:
-        raise ValueError(
-            "Invalid video format. Please use MP4, WebM or MOV."
-        )
+    if extension not in ALLOWED_VIDEO_EXTENSIONS:
+        raise ValueError("Invalid video format. Please use MP4, WebM or MOV.")
 
-    temp_dir = os.path.join("/tmp", "feedback_videos")
-    os.makedirs(temp_dir, exist_ok=True)
+    result = cloudinary.uploader.upload(
+        video,
+        resource_type="video",
+        public_id=f"student_feedback/{uuid.uuid4().hex}",
+        overwrite=False
+    )
 
-    temp_filename = f"{uuid.uuid4().hex}{extension}"
-    temp_path = os.path.join(temp_dir, temp_filename)
-
-    try:
-        # Save the uploaded video temporarily on Render.
-        video.save(temp_path)
-
-        # Upload the temporary file to Cloudinary.
-        result = cloudinary.uploader.upload(
-            temp_path,
-            resource_type="video",
-            public_id=f"student_feedback/{uuid.uuid4().hex}",
-            overwrite=False
-        )
-
-        return result.get("secure_url")
-
-    finally:
-        # Always delete the temporary Render file.
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+    return result.get("secure_url")
 
 
 def send_feedback_email(data, video_url=None):
