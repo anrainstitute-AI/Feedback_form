@@ -434,6 +434,7 @@
     try {
       var response = await fetch("/submit-feedback", {
         method: "POST",
+        enctype: "multipart/form-data",
         body: formData
       });
       var data = await response.json();
