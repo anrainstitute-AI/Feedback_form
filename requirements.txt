@@ -3,3 +3,4 @@ Flask-SQLAlchemy
 PyMySQL
 gunicorn
 Werkzeug
+cloudinary

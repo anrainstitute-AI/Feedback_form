@@ -4,66 +4,83 @@ import smtplib
 from datetime import datetime
 from email.message import EmailMessage
 
+import cloudinary
+import cloudinary.uploader
+
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads", "videos")
-
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
 app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024
 
-# ============================================================
-# EMAIL CONFIGURATION
-# Set these as Environment Variables on Render.
-#
-# EMAIL_SENDER       = your Gmail address
-# EMAIL_PASSWORD     = Gmail App Password (NOT normal password)
-# FEEDBACK_EMAIL     = email address where feedback should arrive
-# SMTP_SERVER        = smtp.gmail.com
-# SMTP_PORT          = 465
-# ============================================================
-
+# Gmail settings - configure these in Render Environment Variables
 EMAIL_SENDER = os.getenv("EMAIL_SENDER")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")  # Gmail App Password, no spaces
 FEEDBACK_EMAIL = os.getenv("FEEDBACK_EMAIL")
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
 
+# Cloudinary settings - configure these in Render Environment Variables
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
-def send_feedback_email(feedback_data, video_path=None):
-    """Send feedback details by email, optionally attaching the video."""
+cloudinary.config(
+    cloud_name=CLOUDINARY_CLOUD_NAME,
+    api_key=CLOUDINARY_API_KEY,
+    api_secret=CLOUDINARY_API_SECRET,
+    secure=True
+)
 
+ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov"}
+
+
+def validate_config():
+    missing = []
+    for name, value in {
+        "EMAIL_SENDER": EMAIL_SENDER,
+        "EMAIL_PASSWORD": EMAIL_PASSWORD,
+        "FEEDBACK_EMAIL": FEEDBACK_EMAIL,
+        "CLOUDINARY_CLOUD_NAME": CLOUDINARY_CLOUD_NAME,
+        "CLOUDINARY_API_KEY": CLOUDINARY_API_KEY,
+        "CLOUDINARY_API_SECRET": CLOUDINARY_API_SECRET,
+    }.items():
+        if not value:
+            missing.append(name)
+
+    if missing:
+        raise RuntimeError("Missing environment variables: " + ", ".join(missing))
+
+
+def upload_video(video):
+    if not video or not video.filename:
+        return None
+
+    filename = secure_filename(video.filename)
+    extension = os.path.splitext(filename)[1].lower()
+
+    if extension not in ALLOWED_VIDEO_EXTENSIONS:
+        raise ValueError("Invalid video format. Please use MP4, WebM or MOV.")
+
+    result = cloudinary.uploader.upload(
+        video,
+        resource_type="video",
+        public_id=f"student_feedback/{uuid.uuid4().hex}",
+        overwrite=False
+    )
+
+    return result.get("secure_url")
+
+
+def send_feedback_email(data, video_url=None):
     if not EMAIL_SENDER or not EMAIL_PASSWORD or not FEEDBACK_EMAIL:
-        raise RuntimeError(
-            "Email configuration is missing. "
-            "Set EMAIL_SENDER, EMAIL_PASSWORD and FEEDBACK_EMAIL."
-        )
-
-    msg = EmailMessage()
-
-    student_name = feedback_data.get("student_name") or "Student"
-    course = feedback_data.get("course") or "Not provided"
-
-    msg["Subject"] = f"New Student Feedback - {student_name} - {course}"
-    msg["From"] = EMAIL_SENDER
-    msg["To"] = FEEDBACK_EMAIL
+        raise RuntimeError("Gmail environment variables are missing.")
 
     def value(key):
-        return feedback_data.get(key) or "Not provided"
+        return data.get(key) or "Not provided"
 
-    recommend = feedback_data.get("recommend")
-    if recommend == "yes":
-        recommend_text = "Yes"
-    elif recommend == "no":
-        recommend_text = "No"
-    else:
-        recommend_text = "Not provided"
-
-    submitted_at = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
+    recommend = data.get("recommend")
+    recommend_text = "Yes" if recommend == "yes" else "No" if recommend == "no" else "Not provided"
 
     body = f"""
 NEW STUDENT FEEDBACK
@@ -88,38 +105,21 @@ WRITTEN FEEDBACK
 ----------------
 {value("written_feedback")}
 
-Submitted At: {submitted_at}
+Submitted At: {datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")}
 
-Video Attached: {"Yes" if video_path else "No"}
+VIDEO
+-----
+{video_url if video_url else "No video was submitted."}
 """
 
+    msg = EmailMessage()
+    msg["Subject"] = f"New Student Feedback - {value('student_name')} - {value('course')}"
+    msg["From"] = EMAIL_SENDER
+    msg["To"] = FEEDBACK_EMAIL
     msg.set_content(body)
 
-    if video_path and os.path.exists(video_path):
-        with open(video_path, "rb") as video_file:
-            video_data = video_file.read()
-
-        filename = os.path.basename(video_path)
-
-        # Determine a reasonable MIME type from the extension.
-        ext = os.path.splitext(filename)[1].lower()
-        subtype = {
-            ".mp4": "mp4",
-            ".webm": "webm",
-            ".mov": "quicktime",
-        }.get(ext, "octet-stream")
-
-        maintype = "video" if ext in {".mp4", ".webm", ".mov"} else "application"
-
-        msg.add_attachment(
-            video_data,
-            maintype=maintype,
-            subtype=subtype,
-            filename=filename,
-        )
-
-    # Gmail SMTP over SSL.
-    with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+    # Short timeout prevents a mail server problem from blocking Gunicorn.
+    with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=30) as server:
         server.login(EMAIL_SENDER, EMAIL_PASSWORD)
         server.send_message(msg)
 
@@ -131,57 +131,24 @@ def index():
 
 @app.route("/submit-feedback", methods=["POST"])
 def submit_feedback():
-    video_path = None
-
     try:
         student_name = request.form.get("student_name", "").strip()
 
         if not student_name:
-            return jsonify(
-                success=False,
-                message="Student name is required."
-            ), 400
+            return jsonify(success=False, message="Student name is required."), 400
 
-        def rating(name):
-            value = request.form.get(name)
-            return int(value) if value else None
+        def rating(field):
+            value = request.form.get(field)
+            try:
+                return int(value) if value else None
+            except ValueError:
+                return None
 
         recommend = request.form.get("recommend")
-        recommend_value = (
-            "yes" if recommend == "yes"
-            else "no" if recommend == "no"
-            else None
-        )
+        if recommend not in ("yes", "no"):
+            recommend = None
 
-        written_feedback = (
-            request.form.get("written_feedback", "").strip() or None
-        )
-
-        # ----------------------------------------------------
-        # Save uploaded video temporarily.
-        # It is attached to the email and then removed.
-        # ----------------------------------------------------
-        video = request.files.get("video")
-
-        if video and video.filename:
-            original = secure_filename(video.filename)
-            ext = os.path.splitext(original)[1].lower()
-
-            if ext not in {".webm", ".mp4", ".mov"}:
-                return jsonify(
-                    success=False,
-                    message="Invalid video format. Use MP4, WebM or MOV."
-                ), 400
-
-            filename = f"{uuid.uuid4().hex}{ext}"
-            video_path = os.path.join(
-                app.config["UPLOAD_FOLDER"],
-                filename
-            )
-
-            video.save(video_path)
-
-        feedback_data = {
+        data = {
             "student_name": student_name,
             "email": request.form.get("email"),
             "mobile": request.form.get("mobile"),
@@ -191,52 +158,67 @@ def submit_feedback():
             "trainer_rating": rating("trainer_rating"),
             "practical_rating": rating("practical_rating"),
             "material_rating": rating("material_rating"),
-            "recommend": recommend_value,
-            "written_feedback": written_feedback,
+            "recommend": recommend,
+            "written_feedback": request.form.get("written_feedback", "").strip() or None,
         }
 
-        # ----------------------------------------------------
-        # Send feedback directly to your email.
-        # ----------------------------------------------------
-        send_feedback_email(feedback_data, video_path)
+        # Video goes to Cloudinary, not Gmail.
+        video_url = upload_video(request.files.get("video"))
+
+        # Gmail receives only the text feedback and the Cloudinary URL.
+        send_feedback_email(data, video_url)
 
         return jsonify(
             success=True,
             message="Thank you! Your feedback has been submitted successfully."
         )
 
-    except Exception as exc:
-        app.logger.exception("Feedback submission failed: %s", exc)
+    except ValueError as exc:
+        app.logger.warning("Validation error: %s", exc)
+        return jsonify(success=False, message=str(exc)), 400
 
+    except smtplib.SMTPAuthenticationError:
+        app.logger.exception("Gmail authentication failed")
         return jsonify(
             success=False,
-            message="Unable to submit feedback. Please try again."
+            message="Gmail authentication failed. Check your Gmail App Password."
         ), 500
 
-    finally:
-        # Remove temporary video after email is sent.
-        if video_path and os.path.exists(video_path):
-            try:
-                os.remove(video_path)
-            except OSError:
-                app.logger.exception(
-                    "Could not remove temporary video: %s",
-                    video_path
-                )
+    except smtplib.SMTPException:
+        app.logger.exception("Gmail SMTP error")
+        return jsonify(
+            success=False,
+            message="Gmail could not send the message. Check SMTP settings."
+        ), 500
+
+    except Exception:
+        app.logger.exception("Feedback submission failed")
+        return jsonify(
+            success=False,
+            message="Server error while processing feedback. Please check Render logs."
+        ), 500
 
 
 @app.route("/admin/feedback")
 def admin_feedback():
-    # Email-only version: there is no database/admin list.
     return """
     <h2>Email Feedback System</h2>
-    <p>Feedback is delivered directly to the configured feedback email address.</p>
+    <p>Feedback is delivered to the configured email address.</p>
+    <p>Videos are stored in Cloudinary and their secure links are included in the email.</p>
     """
 
 
 @app.route("/health")
 def health():
     return jsonify(status="ok")
+
+
+@app.errorhandler(413)
+def request_too_large(error):
+    return jsonify(
+        success=False,
+        message="The uploaded video is too large. Maximum size is 100 MB."
+    ), 413
 
 
 if __name__ == "__main__":
