@@ -59,17 +59,35 @@ def upload_video(video):
     filename = secure_filename(video.filename)
     extension = os.path.splitext(filename)[1].lower()
 
-    if extension not in ALLOWED_VIDEO_EXTENSIONS:
-        raise ValueError("Invalid video format. Please use MP4, WebM or MOV.")
+    if extension not in {".mp4", ".webm", ".mov"}:
+        raise ValueError(
+            "Invalid video format. Please use MP4, WebM or MOV."
+        )
 
-    result = cloudinary.uploader.upload(
-        video,
-        resource_type="video",
-        public_id=f"student_feedback/{uuid.uuid4().hex}",
-        overwrite=False
-    )
+    temp_dir = os.path.join("/tmp", "feedback_videos")
+    os.makedirs(temp_dir, exist_ok=True)
 
-    return result.get("secure_url")
+    temp_filename = f"{uuid.uuid4().hex}{extension}"
+    temp_path = os.path.join(temp_dir, temp_filename)
+
+    try:
+        # Save the uploaded video temporarily on Render.
+        video.save(temp_path)
+
+        # Upload the temporary file to Cloudinary.
+        result = cloudinary.uploader.upload(
+            temp_path,
+            resource_type="video",
+            public_id=f"student_feedback/{uuid.uuid4().hex}",
+            overwrite=False
+        )
+
+        return result.get("secure_url")
+
+    finally:
+        # Always delete the temporary Render file.
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
 
 def send_feedback_email(data, video_url=None):
@@ -220,51 +238,8 @@ def request_too_large(error):
         success=False,
         message="The uploaded video is too large. Maximum size is 100 MB."
     ), 413
-@app.route("/test-cloudinary")
-def test_cloudinary():
-    try:
-        result = cloudinary.api.ping()
-        return jsonify(
-            success=True,
-            message="Cloudinary connection successful",
-            result=result
-        )
-    except Exception as exc:
-        app.logger.exception("Cloudinary test failed: %s", exc)
-        return jsonify(
-            success=False,
-            error=type(exc).__name__,
-            message=str(exc)
-        ), 500
-@app.route("/test-email")
-def test_email():
-    try:
-        send_feedback_email({
-            "student_name": "Test",
-            "email": "test@example.com",
-            "mobile": "0000000000",
-            "course": "Test Course",
-            "trainer": "Test Trainer",
-            "overall_rating": 5,
-            "trainer_rating": 5,
-            "practical_rating": 5,
-            "material_rating": 5,
-            "recommend": "yes",
-            "written_feedback": "Test email from Flask"
-        })
 
-        return jsonify(
-            success=True,
-            message="Gmail connection successful"
-        )
 
-    except Exception as exc:
-        app.logger.exception("Gmail test failed: %s", exc)
-        return jsonify(
-            success=False,
-            error=type(exc).__name__,
-            message=str(exc)
-        ), 500
 
 if __name__ == "__main__":
     app.run(
