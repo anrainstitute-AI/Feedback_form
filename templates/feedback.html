@@ -434,10 +434,35 @@
     try {
       var response = await fetch("/submit-feedback", {
         method: "POST",
-        enctype: "multipart/form-data",
         body: formData
       });
-      var data = await response.json();
+
+      // Read as text first so HTML error pages do not cause
+      // "Unexpected token '<'" when JSON parsing is attempted.
+      var responseText = await response.text();
+      var data;
+
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Server returned non-JSON:", response.status, responseText);
+
+        if (response.status === 413) {
+          throw new Error("The video is too large. Please record a shorter video.");
+        }
+        if (response.status === 404) {
+          throw new Error("Feedback submission URL was not found. Please check the Flask route.");
+        }
+        if (response.status >= 500) {
+          throw new Error("Server error while sending feedback. Please check the Render logs.");
+        }
+
+        throw new Error("Server returned an unexpected response (" + response.status + ").");
+      }
+
+      if (!response.ok) {
+        throw new Error(data.message || ("Request failed (" + response.status + ")."));
+      }
 
       if (data.success) {
         showMessage(data.message, "success");
@@ -456,7 +481,8 @@
         showMessage(data.message || "Something went wrong.", "error");
       }
     } catch (err) {
-      showMessage("Network error: " + err.message, "error");
+      console.error("Feedback submission error:", err);
+      showMessage(err.message || "Unable to submit feedback.", "error");
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = "Submit Feedback";
