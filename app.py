@@ -191,11 +191,12 @@ def submit_feedback():
             message="Gmail could not send the message. Check SMTP settings."
         ), 500
 
-    except Exception:
-        app.logger.exception("Feedback submission failed")
+    except Exception as exc:
+        app.logger.exception("Feedback submission failed: %s", exc)
+
         return jsonify(
             success=False,
-            message="Server error while processing feedback. Please check Render logs."
+            message=f"Server error: {type(exc).__name__}"
         ), 500
 
 
