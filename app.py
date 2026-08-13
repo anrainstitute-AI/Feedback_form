@@ -18,7 +18,7 @@ EMAIL_SENDER = os.getenv("EMAIL_SENDER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")  # Gmail App Password, no spaces
 FEEDBACK_EMAIL = os.getenv("FEEDBACK_EMAIL")
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
 
 # Cloudinary settings - configure these in Render Environment Variables
 CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
@@ -119,10 +119,7 @@ VIDEO
     msg.set_content(body)
 
     # Short timeout prevents a mail server problem from blocking Gunicorn.
-    with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
+    with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=30) as server:
         server.login(EMAIL_SENDER, EMAIL_PASSWORD)
         server.send_message(msg)
 
@@ -194,12 +191,11 @@ def submit_feedback():
             message="Gmail could not send the message. Check SMTP settings."
         ), 500
 
-    except Exception as exc:
-        app.logger.exception("Feedback submission failed: %s", exc)
-
+    except Exception:
+        app.logger.exception("Feedback submission failed")
         return jsonify(
             success=False,
-            message=f"Server error: {type(exc).__name__}"
+            message="Server error while processing feedback. Please check Render logs."
         ), 500
 
 
@@ -223,7 +219,6 @@ def request_too_large(error):
         success=False,
         message="The uploaded video is too large. Maximum size is 100 MB."
     ), 413
-
 
 
 if __name__ == "__main__":
