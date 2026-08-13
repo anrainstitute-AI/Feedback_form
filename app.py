@@ -18,7 +18,7 @@ EMAIL_SENDER = os.getenv("EMAIL_SENDER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")  # Gmail App Password, no spaces
 FEEDBACK_EMAIL = os.getenv("FEEDBACK_EMAIL")
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 
 # Cloudinary settings - configure these in Render Environment Variables
 CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
@@ -119,7 +119,10 @@ VIDEO
     msg.set_content(body)
 
     # Short timeout prevents a mail server problem from blocking Gunicorn.
-    with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=30) as server:
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
         server.login(EMAIL_SENDER, EMAIL_PASSWORD)
         server.send_message(msg)
 
